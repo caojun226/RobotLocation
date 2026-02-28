@@ -4,18 +4,10 @@ using System.Data;
 using System.Data.SQLite;
 using System.Drawing;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 using RobotLocation.Service;
 using RobotLocation.UI;
-using Sunny.UI;
-using VisionCore.Communication;
 using VisionCore.Ext;
 using VisionCore.Log;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace RobotLocation.Model
 {
@@ -212,22 +204,7 @@ namespace RobotLocation.Model
 
         #endregion
 
-        /// <summary>
-        /// 开机关闭下位连锁
-        /// </summary>
-        //public void plcint()
-        //{
-        //    //开机强制关闭下位连锁，防止程序崩溃后残留标记
-        //    var r = EComManageer.GetECommunication("ModbusTcpNet0");
-        //    if (r.status)
-        //    {
-        //        EComManageer.Write<bool>("ModbusTcpNet0", "529", false);
-        //    }
-        //    else
-        //    {
-        //        LogNet.Info("下位连锁异常，无法运行");
-        //    }
-        //}
+
         public Dictionary<string, string> settings = new Dictionary<string, string>();
         public void SettingsInit(int bID)
         {
@@ -312,61 +289,8 @@ namespace RobotLocation.Model
             }
 
         }
-        public static void LoadSettings()
-        {
-        }
 
-        public static void SaveSettings()
-        {
-            //逻辑未实现
-        }
-        //public bool plcclear()
-        //{
-        //    var r = EComManageer.GetECommunication("ModbusTcpNet0");
-        //    if (r.status)
-        //    {
-        //        EComManageer.Write<bool>("ModbusTcpNet0", "529", false);
-        //        //清空手动按钮启动状态和央视
-        //        EComManageer.Write<bool>("ModbusTcpNet0", "500", false);
-        //        EComManageer.Write<bool>("ModbusTcpNet0", "505", false);
-        //        EComManageer.Write<bool>("ModbusTcpNet0", "510", false);
-        //        EComManageer.Write<bool>("ModbusTcpNet0", "515", false);
-        //        EComManageer.Write<bool>("ModbusTcpNet0", "520", false);
-        //        return true;
-        //    }
-        //    else
-        //    {
-        //        LogNet.Error("下位连锁异常，无法停止其状态，使用按钮或急停停止下位运行！");
-        //        return false;
-        //    }
-        //}
-        //读取PLC数据
-        //private void readplcdate(object sender, EventArgs e)
-        //{
-        //    var r = EComManageer.GetECommunication("ModbusTcpNet0");
-        //    if (r.status)
-        //    {
-        //        var Main = EComManageer.Read<UInt16>("ModbusTcpNet0", "1000");
-        //        var Cut = EComManageer.Read<UInt16>("ModbusTcpNet0", "1001");
-        //        var Turn1 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1002");
-        //        var Turn2 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1003");
-        //        var Stir = EComManageer.Read<UInt16>("ModbusTcpNet0", "1004");
-        //        //读取剔除步数，来源单片机返回数据
-        //        var step1 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1400");
-        //        var step2 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1401");
-        //        var step3 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1402");
-        //        var step4 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1403");
-        //        var step5 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1404");
-        //        var step6 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1405");
-        //        var time1 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1406");
-        //        var time2 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1407");
-        //        var time3 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1408");
-        //        var time4 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1409");
-        //        var step7 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1410");//内偏移
-        //        var step8 = EComManageer.Read<UInt16>("ModbusTcpNet0", "1411");//外偏移*/                
-        //        //显示数据
-        //    }
-        //}
+
         //读取历史数据
         private void LoadData()
         {
@@ -657,189 +581,27 @@ namespace RobotLocation.Model
             return Math.Max(min, Math.Min(max, value));
         }
 
-        //打印程序开始
-
-        [DllImport("POS_SDK.dll", CharSet = CharSet.Ansi, EntryPoint = "POS_Port_OpenA")]
-        static extern Int32 POS_Port_OpenA(String lpName, Int32 iPort, bool bFile, String path);
-
-        [DllImport("POS_SDK.dll", CharSet = CharSet.Ansi, EntryPoint = "POS_Port_Close")]
-        static extern Int32 POS_Port_Close(long iPort);
-
-        [DllImport("POS_SDK.dll", CharSet = CharSet.Ansi, EntryPoint = "POS_Output_PrintData")]
-        static extern Int32 POS_Output_PrintData(long printID, byte[] strBuff, Int32 ilen);
-        [DllImport("POS_SDK.dll", CharSet = CharSet.Ansi, EntryPoint = "POS_Control_AlignType")]
-        static extern Int32 POS_Control_AlignType(long printID, Int32 iAlignType);
-        [DllImport("POS_SDK.dll", CharSet = CharSet.Ansi, EntryPoint = "POS_Output_PrintFontStringA")]
-        static extern Int32 POS_Output_PrintFontStringA(long printID, Int32 iFont, Int32 iThick, Int32 iWidth, Int32 iHeight, Int32 iUnderLine, String lpString);
-        [DllImport("POS_SDK.dll", CharSet = CharSet.Ansi, EntryPoint = "POS_Output_PrintTwoDimensionalBarcodeA")]
-        static extern Int32 POS_Output_PrintTwoDimensionalBarcodeA(long printID, Int32 iType, Int32 parameter1, Int32 parameter2, Int32 parameter3, String lpString);
-        [DllImport("POS_SDK.dll", CharSet = CharSet.Ansi, EntryPoint = "POS_Control_CutPaper")]
-        static extern Int32 POS_Control_CutPaper(long printID, Int32 type, Int32 len);
-        [DllImport("POS_SDK.dll", CharSet = CharSet.Ansi, EntryPoint = "POS_Control_ReSet")]
-        static extern Int32 POS_Control_ReSet(long printID);
-
-        public static bool PrintReport(DTO rpt)
+        // ✅ 替换为简单调用：
+        /// <summary>
+        /// 异步打印（从全局变量）
+        /// </summary>
+        public static void PrintAsync()
         {
-            const string port = "SP-USB1";
-            long hPort = POS_Port_OpenA(port, 1002, false, "");
-            if (hPort < 0)
-                return false;
-
-            try
+            PrintService.Instance.PrintFromGlobalVarsAsync(result =>
             {
-                // 初始化打印
-                byte[] cmd = { 0x1c, 0x26 };
-                POS_Output_PrintData(hPort, cmd, 2);
-                POS_Control_AlignType(hPort, 1);
-
-                // 标题
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0, "XOP1080 视觉选丸仪\r\n");
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0, "检测数据\r\n");
-                POS_Control_AlignType(hPort, 0);
-
-                // 时间、溶液名
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    $"{rpt.ReportTime:yyyy-MM-dd HH:mm:ss}                 {ExtHandler.GetAutoLoadSolName()}\r\n");
-
-                // 基本统计
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    "-------------------------------------------\r\n");
-
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                  $"检测牌号：    {rpt.type}\r\n");
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    $"检测直径：    {rpt.DetectDiameter:F3}\r\n");
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    $"检测偏差：    {rpt.DiameterBias:F3}\r\n");
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    $"检测圆度：    {rpt.DetectRoundness:F3}\r\n");
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    $"色差阈值：    {rpt.ColorThreshold:F3}\r\n");
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    "-------------------------------------------\r\n");
-
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    $"合格:         {rpt.QualifiedCount}次\r\n");
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    $"剔除:         {rpt.RejectCount}粒\r\n");
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    $"合格率:       {rpt.PassCount}%\r\n");
-
-                // 数值区间
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    "-------------------------------------------\r\n");
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    "              Agv       Max         Min        \r\n");
-
-                void PrintRange(string title, double avg, double max, double min) =>
-                    POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                        $" {title}:     {avg:F3}       {max:F3}       {min:F3}\r\n");
-
-                PrintRange("粒径  ", rpt.AvgDiameter, rpt.MaxDiameter, rpt.MinDiameter);
-                PrintRange("圆度值", rpt.AvgRoundness, rpt.MaxRoundness, rpt.MinRoundness);
-                //PrintRange("标准差", rpt.AvgStdDev, rpt.MaxStdDev, rpt.MinStdDev);
-                PrintRange("长轴  ", rpt.AvgLongAxis, rpt.MaxLongAxis, rpt.MinLongAxis);
-                PrintRange("短轴  ", rpt.AvgShortAxis, rpt.MaxShortAxis, rpt.MinShortAxis);
-
-                // 缺陷占比
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    "-------------------------------------------\r\n");
-
-                void PrintDefect(string name, int cnt)
-                {
-                    double percent = rpt.TotalDefects == 0 ? 0 : (double)cnt / rpt.TotalDefects * 100;
-                    POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                        $"{name}：    {percent:F3}%\r\n");
-                }
-
-                PrintDefect("皮帽", rpt.DefectSkin);
-                PrintDefect("脏污", rpt.DefectDirty);
-                PrintDefect("偏心", rpt.DefectColor);
-                PrintDefect("凹陷", rpt.DefectConcave);
-                PrintDefect("凸点", rpt.DefectConvex);
-                PrintDefect("气泡", rpt.DefectBubble);
-                PrintDefect("黑点", rpt.DefectSolid);
-                PrintDefect("黑边", rpt.DefectShape);
-                PrintDefect("异形", rpt.DefectAlien);
-                PrintDefect("尺寸", rpt.DefectSize);
-                PrintDefect("圆度", rpt.DefectRound);
-                PrintDefect("色差", rpt.DefectChromatic);
-
-                POS_Output_PrintFontStringA(hPort, 0, 0, 0, 0, 0,
-                    "-------------------------------------------\r\n");
-
-                // 切纸
-                POS_Control_CutPaper(hPort, 1, 3);
-                POS_Control_ReSet(hPort);
-            }
-            finally
-            {
-                POS_Port_Close(hPort);
-            }
-            return true;
+                if (result.Success)
+                    LogNet.Info("打印完成");
+                else
+                    LogNet.Error($"打印失败: {result.ErrorMessage}");
+            });
         }
 
-        public static void PT_res()
+        /// <summary>
+        /// 异步打印（带回调）
+        /// </summary>
+        public static void PrintAsync(Action<PrintResult> callback)
         {
-            // 假设从数据库或界面拿到一条记录
-            var report = new DTO
-            {
-                ReportTime = ExtHandler.GetGlobalVar<string>("日期"),
-                // 计数
-                QualifiedCount = ExtHandler.GetGlobalVar<int>("合格"),
-                RejectCount = ExtHandler.GetGlobalVar<int>("剔除"),
-                PassCount = ExtHandler.GetGlobalVar<double>("合格率"),
-
-                // 粒径
-                AvgDiameter = ExtHandler.GetGlobalVar<double>("粒径均值"),
-                MaxDiameter = ExtHandler.GetGlobalVar<double>("粒径最大值"),
-                MinDiameter = ExtHandler.GetGlobalVar<double>("粒径最小值"),
-
-                // 圆度
-                AvgRoundness = ExtHandler.GetGlobalVar<double>("圆度均值"),
-                MaxRoundness = ExtHandler.GetGlobalVar<double>("圆度最大值"),
-                MinRoundness = ExtHandler.GetGlobalVar<double>("圆度最小值"),
-
-                // 标准差
-                /*
-                AvgStdDev = ExtHandler.GetGlobalVar<double>("方差均值"),
-                MaxStdDev = ExtHandler.GetGlobalVar<double>("方差最大值"),
-                MinStdDev = ExtHandler.GetGlobalVar<double>("方差最小值"),
-                */
-
-                // 长/短轴
-                AvgLongAxis = ExtHandler.GetGlobalVar<double>("长轴均值"),
-                MaxLongAxis = ExtHandler.GetGlobalVar<double>("长轴最大值"),
-                MinLongAxis = ExtHandler.GetGlobalVar<double>("长轴最小值"),
-
-                AvgShortAxis = ExtHandler.GetGlobalVar<double>("短轴均值"),
-                MaxShortAxis = ExtHandler.GetGlobalVar<double>("短轴最大值"),
-                MinShortAxis = ExtHandler.GetGlobalVar<double>("短轴最小值"),
-
-                // 检测设置
-                DetectDiameter = ExtHandler.GetGlobalVar<double>("检测粒径"),
-                DiameterBias = ExtHandler.GetGlobalVar<double>("粒径偏差"),
-                DetectRoundness = ExtHandler.GetGlobalVar<double>("圆度"),
-                ColorThreshold = ExtHandler.GetGlobalVar<double>("色差阈值"),
-
-                // 缺陷个数
-                DefectSkin = ExtHandler.GetGlobalVar<int>("r_001"),
-                DefectDirty = ExtHandler.GetGlobalVar<int>("r_002"),
-                DefectColor = ExtHandler.GetGlobalVar<int>("r_003"),
-                DefectConcave = ExtHandler.GetGlobalVar<int>("r_004"),
-                DefectConvex = ExtHandler.GetGlobalVar<int>("r_005"),
-                DefectBubble = ExtHandler.GetGlobalVar<int>("r_006"),
-                DefectSolid = ExtHandler.GetGlobalVar<int>("r_007"),
-                DefectShape = ExtHandler.GetGlobalVar<int>("r_008"),
-                DefectAlien = ExtHandler.GetGlobalVar<int>("r_012"),
-
-                DefectSize = ExtHandler.GetGlobalVar<int>("r_009"),
-                DefectRound = ExtHandler.GetGlobalVar<int>("r_010"),
-                DefectChromatic = ExtHandler.GetGlobalVar<int>("r_011"),
-                type = ExtHandler.GetGlobalVar<String>("type")
-                // ……其余字段照填
-            };
-            PrintReport(report);
+            PrintService.Instance.PrintFromGlobalVarsAsync(callback);
         }
     }
 }

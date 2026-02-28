@@ -1,40 +1,18 @@
-﻿using cszmcaux;
-using HalconDotNet;
-using LevelDB;
-using RobotLocation.Model;
-using RobotLocation.Properties;
+﻿using RobotLocation.Model;
 using RobotLocation.Service;
 using Sunny.UI;
-using Sunny.UI.Win32;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Configuration;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web.UI.WebControls;
 using System.Windows.Forms;
-using System.Xml.Linq;
 using Vision.Service;
-using VisionCore.BasePlugin.IF;
-using VisionCore.Communication;
-using VisionCore.Component;
 using VisionCore.Ext;
-using VisionCore.Frm;
 using VisionCore.Log;
-using VisionCore.Tools;
-using static RobotLocation.Model.ring;
-using static System.Windows.Forms.AxHost;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace RobotLocation.UI
 {
@@ -140,6 +118,11 @@ namespace RobotLocation.UI
             AutoLoad();
             xop1080sv.MCSetM(2, 1, 1);
             xop1080sv.chspeedM0(40);//强制改速度，防止电机未保存上次速度，启动时候无速度
+                                    // 订阅打印完成事件
+            PrintService.Instance.PrintCompleted += OnPrintCompleted;
+
+            // 异步检查打印机连接
+            _ = CheckPrinterAsync();
         }
 
         private void AutoLoad()
@@ -326,7 +309,7 @@ namespace RobotLocation.UI
                 }
                 if (自动打印 == "true" && !急停 && ERR != "1")
                 {
-                    xop1080m.PT_res();
+                    PrintService.Instance.PrintFromGlobalVarsAsync();
                 }
                 ToneOp.passI = 0;
                 ToneOp.passO = 0;
@@ -697,6 +680,35 @@ namespace RobotLocation.UI
                 ExtHandler.SetModEnable("外2", "采集图保存", false);
                 ExtHandler.SetModEnable("外3", "采集图保存", false);
             }
-        }        
+        }
+
+
+        //**********************打印相关**********************
+        /// <summary>
+        /// 异步检查打印机
+        /// </summary>
+        private async Task CheckPrinterAsync()
+        {
+            bool connected = await PrintService.Instance.CheckConnectionAsync();
+            if (!connected)
+            {
+                LogNet.Warn("打印机未连接，打印功能不可用");
+            }
+        }
+
+        /// <summary>
+        /// 打印完成事件处理
+        /// </summary>
+        private void OnPrintCompleted(object sender, PrintResult result)
+        {
+            if (result.Success)
+            {
+                LogNet.Info("打印任务完成");
+            }
+            else
+            {
+                LogNet.Error($"打印任务失败: {result.ErrorMessage}");
+            }
+        }
     }
 }

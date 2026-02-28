@@ -194,66 +194,7 @@ namespace RobotLocation.Service
             return true;
         }
         #endregion
-        #region 独立出来的相机操作，链接
-        // 全局
-        // 全局
-        public static bool cccam()
-        {
-            //step1 清空列表
-            ToneProcesses.Clear();
-            
 
-            //step2，爆珠项目专用数据随想和字典
-            //for (int i = 0; i < 6; i++)
-            //{
-            //    IOSignalFlags[i] = new ConcurrentDictionary<int, int>(); // 初始化每个相机的信号值字典
-            //}            
-            //step3,根据流程建立对应的流程列表和线程，要求流程名对应相应的相机名            
-            ToneProcesses.Add(new ToneProcess() { Name = "内1" });
-            ToneProcesses.Add(new ToneProcess() { Name = "内2" });
-            ToneProcesses.Add(new ToneProcess() { Name = "内3" });
-            ToneProcesses.Add(new ToneProcess() { Name = "外1" });
-            ToneProcesses.Add(new ToneProcess() { Name = "外2" });
-            ToneProcesses.Add(new ToneProcess() { Name = "外3" });
-            //step3:尝试拉起相机线程
-            //初始化流程对应的线程
-            foreach (var p in ToneProcesses.ToList())
-            {
-                try
-                {
-                    p.Destroy();
-                    var pr = p.Init();
-                    if (!pr)
-                    {
-                        LogNet.Error(p.Name + "相机线程启动失败");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogNet.Error($"初始化线程 {p.Name} 时发生异常: {ex.Message}");
-                }
-            }
-            //sstep4:开启相结果缓存
-            for (int i = 0; i < ToneProcesses.Count; i++)
-            {
-                int cameraIndex = i;
-                Task.Run(() => ProcessCamera(cameraIndex), CancellationToken.None);
-            }
-
-            //step5 清理数据
-            incount = 0;
-            outcount = 0;
-            OldMposI = 0;
-            OldMposO = 0;
-            resMap1.Clear();
-            resMap2.Clear();
-            resMap3.Clear();
-            resMap4.Clear();
-            resMap5.Clear();
-            resMap6.Clear();
-            return true;
-        }
-        #endregion
         #region 控制卡，正运动
 
         #region 定义运动控制卡变量

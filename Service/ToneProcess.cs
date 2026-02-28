@@ -43,6 +43,8 @@ namespace RobotLocation.Service
         public uint lastTime = 0;//上一次的时间戳
         public uint useTime = 0;//两次拍照耗时
 
+        // 添加原始数据队列
+        private ConcurrentQueue<RawImageData> _rawImageQueue = new ConcurrentQueue<RawImageData>();
         // ch:用于保存图像的缓存 | en:Buffer for saving image
         //private UInt32 m_nBufSizeForSaveImage = 5120 * 5120 * 3 + 2048;
         //private byte[] m_pBufForSaveImage = new byte[5120 * 5120 * 3 + 2048];
@@ -265,127 +267,83 @@ namespace RobotLocation.Service
             }
 
         }
-        //相机回调
+        /// <summary>
+        /// 相机回调函数 - 优化版（只做数据拷贝，快速返回）
+        /// </summary>
         private void ImageCallbackFunc(IntPtr pData, ref MyCamera.MV_FRAME_OUT_INFO_EX pFrameInfo, IntPtr pUser)
         {
             try
             {
-                var tempmposi=ToneOp.MposI1;
+                // 获取编码器位置（快速操作）
+                var tempmposi = ToneOp.MposI1;
                 var tempmposo = ToneOp.MposO1;
-                HImage Image = new HImage();
-                if (pFrameInfo.enPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8)
-                {
-                    Image.GenImage1("byte", pFrameInfo.nWidth, pFrameInfo.nHeight, pData);
-                }
-                else if (pFrameInfo.enPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_BGR8_Packed)
-                {
-                    Image.GenImageInterleaved(pData,
-                      "bgr",
-                      pFrameInfo.nWidth, pFrameInfo.nHeight,
-                      -1, "byte",
-                      pFrameInfo.nWidth, pFrameInfo.nHeight,
-                      0, 0, -1, 0);
-                }
-                else if (pFrameInfo.enPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_RGB8_Packed)
-                {
-                    Image.GenImageInterleaved(pData,
-                     "rgb",
-                     pFrameInfo.nWidth, pFrameInfo.nHeight,
-                     -1, "byte",
-                     pFrameInfo.nWidth, pFrameInfo.nHeight,
-                     0, 0, -1, 0);
-                }
-                else if (pFrameInfo.enPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerBG8)
-                {
-                    HImage tempImage = new HImage();
-                    tempImage.GenImage1("byte", pFrameInfo.nWidth, pFrameInfo.nHeight, pData);
-                    Image = tempImage.CfaToRgb("bayer_bg", "bilinear");
-                }
-                else if (pFrameInfo.enPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerGB8)
-                {
-                    HImage tempImage = new HImage();
-                    tempImage.GenImage1("byte", pFrameInfo.nWidth, pFrameInfo.nHeight, pData);
-                    Image = tempImage.CfaToRgb("bayer_gb", "bilinear");
-                }
-                else if (pFrameInfo.enPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerGR8)
-                {
-                    HImage tempImage = new HImage();
-                    tempImage.GenImage1("byte", pFrameInfo.nWidth, pFrameInfo.nHeight, pData);
-                    Image = tempImage.CfaToRgb("bayer_gr", "bilinear");
-                }
-                else if (pFrameInfo.enPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerRG8)
-                {
-                    HImage tempImage = new HImage();
-                    tempImage.GenImage1("byte", pFrameInfo.nWidth, pFrameInfo.nHeight, pData);
-                    Image = tempImage.CfaToRgb("bayer_rg", "bilinear");
-                }
-                else
-                {
-                    LogNet.Error("没有找到合适图像格式");
-                }
-                /* === 读取相机硬件丢帧计数器 0x0F30 === */
-                //uint lostThisTime = GetLostIncr();
-                //string lostThisTime = GetLostFrame();
-                ////if (lostThisTime > 0)
-                //LogNet.Info($"{Name} 硬件丢帧 ：{lostThisTime}");
-                /* ====================================== */
-                //1.设置对象
-                curOrder++;    
-                int ppQrder = 0;//图像帧号
-                ulong ppTimeStamp = 0;//图像时间戳
-                ppQrder = (int)pFrameInfo.nFrameNum;
-                //LogNet.Info($"{Name} 帧号 ：{ppQrder}");
+
+                // 计算图像数据大小
+                int dataSize = CalculateDataSize(pFrameInfo);
+                if (dataSize <= 0) return;
+
+                // 快速拷贝原始数据
+                byte[] rawData = new byte[dataSize];
+                Marshal.Copy(pData, rawData, 0, dataSize);
+
+                // 计算时间间隔
+                uint useTime = 0;
                 ulong time = (ulong)pFrameInfo.nDevTimeStampLow + ((ulong)pFrameInfo.nDevTimeStampHigh << 32);
-                ppTimeStamp = time / 100000;               
-                if(lastTime!=0)
+                ulong ppTimeStamp = time / 100000;
+                if (lastTime != 0)
                 {
-                    useTime= (uint)ppTimeStamp - lastTime;
-                    //LogNet.Info(Name + "时间戳差:" + (ppTimeStamp-lastTime).ToString()+"ms");
+                    useTime = (uint)ppTimeStamp - lastTime;
                 }
                 lastTime = (uint)ppTimeStamp;
-                if(ppQrder>0)
+
+                // 快速入队原始数据
+                if (pFrameInfo.nFrameNum > 0)
                 {
-                    ProductMap.TryAdd(curOrder, new Product
+                    _rawImageQueue.Enqueue(new RawImageData
                     {
-                        Order = curOrder,//结果缓存，通过偏移编号实现
-                        Img = Image,
-                        useTime = useTime,
-                        mposi=tempmposi,
-                        mposo=tempmposo,
+                        Data = rawData,
+                        Width = (int)pFrameInfo.nWidth,
+                        Height = (int)pFrameInfo.nHeight,
+                        PixelType = pFrameInfo.enPixelType,
+                        FrameNum = pFrameInfo.nFrameNum,
+                        TimeStamp = (uint)ppTimeStamp,
+                        MposI = tempmposi,
+                        MposO = tempmposo,
+                        UseTime = useTime
                     });
-                    //处理
-                    ProcessQueuqe.Enqueue(curOrder);
-                    //3.信号
-                    ResQueuqe.Enqueue(curOrder);
-                } 
-                else
-                {
-                    return;
                 }
             }
             catch (Exception ex)
             {
-                LogNet.Error("获取图像失败:" + ex.Message);
-
+                LogNet.Error($"获取图像失败: {ex.Message}");
             }
         }
-        private void SaveImg(HObject Img, bool r)
-            {
-                if (!r)
-                {
-                    if (ImgNGCount > 60)
-                    {
-                        Directory.Delete(NGDir, true);
 
-                    }
-                    if (!Directory.Exists(NGDir))
-                    {
-                        Directory.CreateDirectory(NGDir);
-                    }
-                    ImgNGCount++;
-                    HOperatorSet.WriteImage(Img, "bmp", 0, NGDir + "\\" + DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_ff"));
-                }
+        /// <summary>
+        /// 计算图像数据大小
+        /// </summary>
+        private int CalculateDataSize(MyCamera.MV_FRAME_OUT_INFO_EX pFrameInfo)
+        {
+            int pixelSize = 1;
+            switch (pFrameInfo.enPixelType)
+            {
+                case MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8:
+                case MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerBG8:
+                case MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerGB8:
+                case MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerGR8:
+                case MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerRG8:
+                    pixelSize = 1;
+                    break;
+                case MyCamera.MvGvspPixelType.PixelType_Gvsp_BGR8_Packed:
+                case MyCamera.MvGvspPixelType.PixelType_Gvsp_RGB8_Packed:
+                    pixelSize = 3;
+                    break;
+                default:
+                    return -1;
             }
+            return (int)pFrameInfo.nWidth * (int)pFrameInfo.nHeight * pixelSize;
+        }
+
         #endregion
         public void Exe(HObject Image)
         {
@@ -451,8 +409,11 @@ namespace RobotLocation.Service
         }
 
         //不在初始化直接运行解决方案，由启动按钮运行
+        /// <summary>
+        /// 启动处理线程 - 优化版
+        /// </summary>
         public void runpj()
-        {            
+        {
             RunTH = new Thread(() =>
             {
                 while (true)
@@ -460,11 +421,39 @@ namespace RobotLocation.Service
                     try
                     {
                         Thread.Sleep(1);
-                        if (ProcessQueuqe.TryDequeue(out int order))
+
+                        // 从原始数据队列获取数据
+                        if (_rawImageQueue.TryDequeue(out RawImageData rawData))
                         {
-                            if (ProductMap.TryGetValue(order, out Product p))
+                            // 在后台线程进行格式转换（不影响相机回调）
+                            HImage image = ConvertToHImage(rawData);
+                            if (image == null)
                             {
-                                Exe(ref p);
+                                rawData.Dispose();
+                                continue;
+                            }
+
+                            // 创建Product并处理
+                            curOrder++;
+                            var product = new Product
+                            {
+                                Order = curOrder,
+                                Img = image,
+                                useTime = rawData.UseTime,
+                                mposi = rawData.MposI,
+                                mposo = rawData.MposO
+                            };
+
+                            try
+                            {
+                                // 执行视觉处理
+                                Exe(ref product);
+                            }
+                            finally
+                            {
+                                // 释放资源
+                                product.Dispose();
+                                rawData.Dispose();
                             }
                         }
                     }
@@ -472,12 +461,91 @@ namespace RobotLocation.Service
                     {
                         break;
                     }
+                    catch (Exception ex)
+                    {
+                        LogNet.Error($"处理图像异常: {ex.Message}");
+                    }
                 }
             });
             RunTH.IsBackground = true;
-            RunTH.Priority = ThreadPriority.Highest;
+            //RunTH.Priority = ThreadPriority.Highest;
             RunTH.Start();
         }
+
+        /// <summary>
+        /// 将原始数据转换为HImage（在后台线程执行）
+        /// </summary>
+        private HImage ConvertToHImage(RawImageData rawData)
+        {
+            HImage image = new HImage();
+
+            // 使用GCHandle固定内存
+            GCHandle handle = GCHandle.Alloc(rawData.Data, GCHandleType.Pinned);
+            try
+            {
+                IntPtr pData = handle.AddrOfPinnedObject();
+
+                switch (rawData.PixelType)
+                {
+                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8:
+                        image.GenImage1("byte", rawData.Width, rawData.Height, pData);
+                        break;
+
+                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_BGR8_Packed:
+                        image.GenImageInterleaved(pData, "bgr", rawData.Width, rawData.Height,
+                            -1, "byte", rawData.Width, rawData.Height, 0, 0, -1, 0);
+                        break;
+
+                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_RGB8_Packed:
+                        image.GenImageInterleaved(pData, "rgb", rawData.Width, rawData.Height,
+                            -1, "byte", rawData.Width, rawData.Height, 0, 0, -1, 0);
+                        break;
+
+                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerBG8:
+                        using (HImage tempImage = new HImage())
+                        {
+                            tempImage.GenImage1("byte", rawData.Width, rawData.Height, pData);
+                            image = tempImage.CfaToRgb("bayer_bg", "bilinear");
+                        }
+                        break;
+
+                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerGB8:
+                        using (HImage tempImage = new HImage())
+                        {
+                            tempImage.GenImage1("byte", rawData.Width, rawData.Height, pData);
+                            image = tempImage.CfaToRgb("bayer_gb", "bilinear");
+                        }
+                        break;
+
+                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerGR8:
+                        using (HImage tempImage = new HImage())
+                        {
+                            tempImage.GenImage1("byte", rawData.Width, rawData.Height, pData);
+                            image = tempImage.CfaToRgb("bayer_gr", "bilinear");
+                        }
+                        break;
+
+                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_BayerRG8:
+                        using (HImage tempImage = new HImage())
+                        {
+                            tempImage.GenImage1("byte", rawData.Width, rawData.Height, pData);
+                            image = tempImage.CfaToRgb("bayer_rg", "bilinear");
+                        }
+                        break;
+
+                    default:
+                        LogNet.Error($"不支持的像素格式: {rawData.PixelType}");
+                        return null;
+                }
+
+                return image;
+            }
+            finally
+            {
+                handle.Free();
+            }
+        }
+
 
         // 判断线程是否正在运行
         public bool IsThreadRunning()
@@ -485,15 +553,39 @@ namespace RobotLocation.Service
             return RunTH != null && RunTH.IsAlive;
         }
 
+        /// <summary>
+        /// 销毁资源
+        /// </summary>
         public void Destroy()
         {
+            // 停止处理线程
             if (RunTH != null && RunTH.IsAlive)
             {
                 RunTH.Interrupt();
-                RunTH.Join();
+                RunTH.Join(1000);  // 等待最多1秒
+                RunTH = null;
             }
+
+            // 清空队列并释放资源
+            while (ProcessQueuqe.TryDequeue(out int order))
+            {
+                if (ProductMap.TryRemove(order, out Product p))
+                {
+                    p?.Dispose();
+                }
+            }
+            ProductMap.Clear();
+
+            // 清空原始数据队列
+            while (_rawImageQueue.TryDequeue(out RawImageData rawData))
+            {
+                rawData?.Dispose();
+            }
+
+            // 断开相机
             DisConnectDev();
         }
+
         MyCamera.MV_CC_DEVICE_INFO m_pDeviceInfo;
         /// <summary>
         /// 官方丢帧检测demo
@@ -555,45 +647,6 @@ namespace RobotLocation.Service
             }
             return "003";
         }
-        //private string GetLostFrame()
-        //{
-        //    MyCamera.MV_ALL_MATCH_INFO pstInfo = new MyCamera.MV_ALL_MATCH_INFO();
-        //    if (m_pDeviceInfo.nTLayerType == MyCamera.MV_GIGE_DEVICE)
-        //    {
-        //        MyCamera.MV_MATCH_INFO_NET_DETECT MV_NetInfo = new MyCamera.MV_MATCH_INFO_NET_DETECT();
-        //        pstInfo.nInfoSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf(typeof(MyCamera.MV_MATCH_INFO_NET_DETECT));
-        //        pstInfo.nType = MyCamera.MV_MATCH_TYPE_NET_DETECT;
-        //        int size = Marshal.SizeOf(MV_NetInfo);
-        //        pstInfo.pInfo = Marshal.AllocHGlobal(size);
-        //        Marshal.StructureToPtr(MV_NetInfo, pstInfo.pInfo, false);
-        //        m_pMyCamera.MV_CC_GetAllMatchInfo_NET(ref pstInfo);
-        //        MV_NetInfo = (MyCamera.MV_MATCH_INFO_NET_DETECT)Marshal.PtrToStructure(pstInfo.pInfo, typeof(MyCamera.MV_MATCH_INFO_NET_DETECT));
-
-        //        string sTemp = MV_NetInfo.nLostFrameCount.ToString();
-        //        Marshal.FreeHGlobal(pstInfo.pInfo);
-        //        return sTemp;
-        //    }
-        //    else if (m_pDeviceInfo.nTLayerType == MyCamera.MV_USB_DEVICE)
-        //    {
-        //        MyCamera.MV_MATCH_INFO_USB_DETECT MV_NetInfo = new MyCamera.MV_MATCH_INFO_USB_DETECT();
-        //        pstInfo.nInfoSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf(typeof(MyCamera.MV_MATCH_INFO_USB_DETECT));
-        //        pstInfo.nType = MyCamera.MV_MATCH_TYPE_USB_DETECT;
-        //        int size = Marshal.SizeOf(MV_NetInfo);
-        //        pstInfo.pInfo = Marshal.AllocHGlobal(size);
-        //        Marshal.StructureToPtr(MV_NetInfo, pstInfo.pInfo, false);
-
-        //        m_pMyCamera.MV_CC_GetAllMatchInfo_NET(ref pstInfo);
-        //        MV_NetInfo = (MyCamera.MV_MATCH_INFO_USB_DETECT)Marshal.PtrToStructure(pstInfo.pInfo, typeof(MyCamera.MV_MATCH_INFO_USB_DETECT));
-
-        //        string sTemp = MV_NetInfo.nErrorFrameCount.ToString();
-        //        Marshal.FreeHGlobal(pstInfo.pInfo);
-        //        return sTemp;
-        //    }
-        //    else
-        //    {
-        //        return "000";
-        //    }
-        //}
         private uint _lastGigeLost = 0;   // GigE 上一次累计
         private uint _lastUsbLost = 0;   // USB 上一次累计
         /// <summary>
@@ -612,6 +665,27 @@ namespace RobotLocation.Service
             uint incr = (now > last) ? now - last : 0;
             last = now;
             return incr;
+        }
+
+        /// <summary>
+        /// 原始图像数据结构
+        /// </summary>
+        public class RawImageData : IDisposable
+        {
+            public byte[] Data;
+            public int Width;
+            public int Height;
+            public MyCamera.MvGvspPixelType PixelType;
+            public uint FrameNum;
+            public uint TimeStamp;
+            public long MposI;
+            public long MposO;
+            public uint UseTime;
+
+            public void Dispose()
+            {
+                Data = null;
+            }
         }
     }
 

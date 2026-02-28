@@ -111,7 +111,6 @@ namespace RobotLocation.UI
             uiUsersLst.SelectedIndex = 0;
             
             DebugSwitch();
-            xop1080m.LoadSettings();//加载电机转速参数，功能未实现！！
             //自动打印数据
             if (ExtHandler.IsLoad)
             {
@@ -625,14 +624,8 @@ namespace RobotLocation.UI
                 }
                 // 把选中行同步到全局变量
                 SaveRowToGlobals(_currentPrintRow);
-                // 打印
-               xop1080m.PT_res();
-            //}
-            //catch
-            //{
-            //    LogNet.Error("打印失败");
-            //}
-
+            // 打印
+            PrintService.Instance.PrintFromGlobalVarsAsync();
         }
         int mBrandID = 0;
         //选中数据存入全局变量
